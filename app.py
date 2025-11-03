@@ -7,7 +7,7 @@ A Flask web app with a UI for uploading CSV files and downloading organized XLSX
 import os
 import tempfile
 from pathlib import Path
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, session, jsonify, after_this_request
 from werkzeug.utils import secure_filename
 import csv
 import json
@@ -528,6 +528,16 @@ def process_file():
         # Clear session
         session.pop('uploaded_filename', None)
         session.pop('total_experiences', None)
+        
+        # Set up cleanup after file is sent
+        @after_this_request
+        def cleanup(response):
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except Exception as e:
+                app.logger.error(f'Error removing file: {e}')
+            return response
         
         # Send the file for download
         return send_file(
