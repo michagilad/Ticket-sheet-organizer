@@ -82,7 +82,9 @@ def extract_and_reorder_columns(rows):
         'Notes - Admin',
         'Next step',
         'Last Updated - Status',
-        'Last Updated - Next step'
+        'Last Updated - Next step',
+        'Last Updated - Invalid Ticket',
+        'Last Updated - Non Ticketed Issues'
     ]
     
     # Define the output order
@@ -107,7 +109,9 @@ def extract_and_reorder_columns(rows):
         'Company',
         'Priority',
         'Last Updated - Status',
-        'Last Updated - Next step'
+        'Last Updated - Next step',
+        'Last Updated - Invalid Ticket',
+        'Last Updated - Non Ticketed Issues'
     ]
     
     processed_rows = []
@@ -329,7 +333,7 @@ def create_xlsx(rows, column_order, output_path):
             ws.column_dimensions[col_letter].width = 20
         elif col_name in ['Additional Notes', 'Notes - Admin', 'Non-ticketed issues']:
             ws.column_dimensions[col_letter].width = 30
-        elif col_name in ['Next step', 'Last Updated - Status', 'Last Updated - Next step']:
+        elif col_name in ['Next step', 'Last Updated - Status', 'Last Updated - Next step', 'Last Updated - Invalid Ticket', 'Last Updated - Non Ticketed Issues']:
             ws.column_dimensions[col_letter].width = 25
         else:
             ws.column_dimensions[col_letter].width = 15
