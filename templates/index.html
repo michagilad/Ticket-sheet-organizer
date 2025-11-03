@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Sheet Organizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+            position: relative;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .selected-file {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .selected-file.show {
+            display: flex;
+        }
+
+        .file-icon {
+            font-size: 1.5em;
+        }
+
+        .file-info {
+            flex: 1;
+            text-align: left;
+        }
+
+        .file-name {
+            color: #333;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        .remove-file {
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+
+        .remove-file:hover {
+            background: #d32f2f;
+        }
+
+        .process-btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .process-btn.show {
+            display: block;
+        }
+
+        .process-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .process-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .process-btn.processing {
+            background: #999;
+            position: relative;
+        }
+
+        .process-btn.processing::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 3px solid white;
+            border-top-color: transparent;
+            border-radius: 50%;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: translateY(-50%) rotate(360deg); }
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .flash-message.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .flash-message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .info-box {
+            background: #f0f2ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .info-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .info-list {
+            list-style: none;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .info-list li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .info-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎫 Ticket Sheet Organizer</h1>
+        <p class="subtitle">Upload your CSV file and get an organized XLSX output</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form id="uploadForm" method="POST" action="/upload" enctype="multipart/form-data">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Drag & Drop your CSV file here</div>
+                <div class="upload-subtext">or click to browse</div>
+                <input type="file" id="fileInput" name="file" accept=".csv">
+            </div>
+
+            <div class="selected-file" id="selectedFile">
+                <span class="file-icon">📊</span>
+                <div class="file-info">
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                </div>
+                <button type="button" class="remove-file" id="removeFile">×</button>
+            </div>
+
+            <button type="submit" class="process-btn" id="processBtn">
+                Process & Download XLSX
+            </button>
+        </form>
+
+        <div class="info-box">
+            <div class="info-title">What this app does:</div>
+            <ul class="info-list">
+                <li>Extracts and reorders columns in optimal format</li>
+                <li>Groups tickets by experience</li>
+                <li>Merges cells for multi-ticket experiences</li>
+                <li>Applies color coding for easy reading</li>
+                <li>Handles line breaks and special characters</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFile = document.getElementById('selectedFile');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const processBtn = document.getElementById('processBtn');
+        const removeFile = document.getElementById('removeFile');
+        const uploadForm = document.getElementById('uploadForm');
+
+        // Click to browse
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(file);
+            } else {
+                alert('Please upload a CSV file');
+            }
+        });
+
+        // Handle file selection
+        function handleFile(file) {
+            if (!file) return;
+
+            if (!file.name.endsWith('.csv')) {
+                alert('Please upload a CSV file');
+                return;
+            }
+
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            selectedFile.classList.add('show');
+            processBtn.classList.add('show');
+            uploadArea.style.display = 'none';
+        }
+
+        // Remove file
+        removeFile.addEventListener('click', () => {
+            fileInput.value = '';
+            selectedFile.classList.remove('show');
+            processBtn.classList.remove('show');
+            uploadArea.style.display = 'block';
+        });
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // Form submission
+        uploadForm.addEventListener('submit', (e) => {
+            processBtn.disabled = true;
+            processBtn.classList.add('processing');
+            processBtn.textContent = 'Processing...';
+        });
+    </script>
+</body>
+</html>
+
+
