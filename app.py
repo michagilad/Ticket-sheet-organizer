@@ -273,21 +273,23 @@ def create_xlsx(rows, column_order, output_path):
         # Write all rows in this group
         for row_data in group_rows:
             for col_idx, col_name in enumerate(column_order, start=1):
-                cell = ws.cell(row=current_row, column=col_idx, value=row_data[col_name])
+                value = row_data[col_name]
+                cell = ws.cell(row=current_row, column=col_idx, value=value)
                 cell.fill = group_fill
                 cell.alignment = Alignment(vertical='top', wrap_text=True)
                 cell.border = thin_border
                 
-                # Make Associated Experience and Ticket name bold
-                if col_name in ['Associated Experience', 'Ticket name']:
+                # Determine font style
+                if col_name == 'Backstage Experience page' and value and (str(value).startswith('http://') or str(value).startswith('https://')):
+                    # URL styling takes precedence
+                    cell.hyperlink = str(value)
+                    cell.font = Font(color="0563C1", underline="single")
+                elif col_name in ['Associated Experience', 'Ticket name']:
+                    # Make bold
                     cell.font = Font(bold=True)
-                
-                # Make Backstage Experience page URLs clickable
-                if col_name == 'Backstage Experience page' and row_data[col_name]:
-                    url = row_data[col_name]
-                    if url.startswith('http://') or url.startswith('https://'):
-                        cell.hyperlink = url
-                        cell.font = Font(color="0563C1", underline="single")
+                else:
+                    # Default font
+                    cell.font = Font()
                 
             current_row += 1
         
@@ -301,22 +303,24 @@ def create_xlsx(rows, column_order, output_path):
                     end_row=end_row,
                     end_column=col_idx
                 )
-                # Center the merged cell content
+                # Center the merged cell content and apply styling
                 merged_cell = ws.cell(row=start_row, column=col_idx)
                 merged_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                 merged_cell.border = thick_border
                 
-                # Preserve bold formatting for Associated Experience
+                # Apply font styling based on column
                 col_name = column_order[col_idx - 1]
-                if col_name == 'Associated Experience':
-                    merged_cell.font = Font(bold=True)
-                
-                # Preserve hyperlink formatting for Backstage Experience page
                 if col_name == 'Backstage Experience page' and merged_cell.value:
-                    url = merged_cell.value
+                    url = str(merged_cell.value)
                     if url.startswith('http://') or url.startswith('https://'):
                         merged_cell.hyperlink = url
                         merged_cell.font = Font(color="0563C1", underline="single")
+                    else:
+                        merged_cell.font = Font()
+                elif col_name == 'Associated Experience':
+                    merged_cell.font = Font(bold=True)
+                else:
+                    merged_cell.font = Font()
     
     # Auto-adjust column widths
     for col_idx, col_name in enumerate(column_order, start=1):
