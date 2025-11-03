@@ -502,7 +502,12 @@ def process_file():
         filename = session['uploaded_filename']
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         
+        app.logger.info(f'Processing file: {filename}')
+        app.logger.info(f'Input path: {input_path}')
+        app.logger.info(f'Temp dir: {app.config["UPLOAD_FOLDER"]}')
+        
         if not os.path.exists(input_path):
+            app.logger.error(f'Input file not found at: {input_path}')
             flash('Uploaded file not found', 'error')
             return redirect(url_for('index'))
         
@@ -519,8 +524,19 @@ def process_file():
         output_filename = Path(filename).stem + '_organized.xlsx'
         output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
         
+        app.logger.info(f'Output path: {output_path}')
+        
         # Process the file with assignee distribution
         stats = process_csv_file(input_path, output_path, assignee_distribution)
+        
+        app.logger.info(f'File processed successfully. Stats: {stats}')
+        
+        # Verify output file exists
+        if not os.path.exists(output_path):
+            app.logger.error(f'Output file was not created at: {output_path}')
+            raise Exception('Failed to create output file')
+        
+        app.logger.info(f'Output file size: {os.path.getsize(output_path)} bytes')
         
         # Clean up input file
         os.remove(input_path)
@@ -535,11 +551,13 @@ def process_file():
             try:
                 if os.path.exists(output_path):
                     os.remove(output_path)
+                    app.logger.info(f'Cleaned up output file: {output_path}')
             except Exception as e:
                 app.logger.error(f'Error removing file: {e}')
             return response
         
         # Send the file for download
+        app.logger.info(f'Sending file for download: {output_filename}')
         return send_file(
             output_path,
             as_attachment=True,
@@ -548,6 +566,7 @@ def process_file():
         )
         
     except Exception as e:
+        app.logger.error(f'Error in process_file: {str(e)}', exc_info=True)
         flash(f'Error processing file: {str(e)}', 'error')
         # Clean up files if they exist
         if 'input_path' in locals() and os.path.exists(input_path):
