@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 import csv
 import json
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.styles import PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
@@ -224,7 +224,6 @@ def create_xlsx(rows, column_order, output_path):
     
     # Define styles
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=11)
     
     # Alternating colors for experience groups
     colors = [
@@ -251,7 +250,6 @@ def create_xlsx(rows, column_order, output_path):
     for col_idx, col_name in enumerate(column_order, start=1):
         cell = ws.cell(row=1, column=col_idx, value=col_name)
         cell.fill = header_fill
-        cell.font = header_font
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border = thick_border
     
@@ -279,17 +277,9 @@ def create_xlsx(rows, column_order, output_path):
                 cell.alignment = Alignment(vertical='top', wrap_text=True)
                 cell.border = thin_border
                 
-                # Determine font style
+                # Make URLs clickable (no font styling)
                 if col_name == 'Backstage Experience page' and value and (str(value).startswith('http://') or str(value).startswith('https://')):
-                    # URL styling takes precedence
                     cell.hyperlink = str(value)
-                    cell.font = Font(color="0563C1", underline="single")
-                elif col_name in ['Associated Experience', 'Ticket name']:
-                    # Make bold
-                    cell.font = Font(bold=True)
-                else:
-                    # Default font
-                    cell.font = Font()
                 
             current_row += 1
         
@@ -303,24 +293,17 @@ def create_xlsx(rows, column_order, output_path):
                     end_row=end_row,
                     end_column=col_idx
                 )
-                # Center the merged cell content and apply styling
+                # Center the merged cell content
                 merged_cell = ws.cell(row=start_row, column=col_idx)
                 merged_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                 merged_cell.border = thick_border
                 
-                # Apply font styling based on column
+                # Make URLs clickable (no font styling)
                 col_name = column_order[col_idx - 1]
                 if col_name == 'Backstage Experience page' and merged_cell.value:
                     url = str(merged_cell.value)
                     if url.startswith('http://') or url.startswith('https://'):
                         merged_cell.hyperlink = url
-                        merged_cell.font = Font(color="0563C1", underline="single")
-                    else:
-                        merged_cell.font = Font()
-                elif col_name == 'Associated Experience':
-                    merged_cell.font = Font(bold=True)
-                else:
-                    merged_cell.font = Font()
     
     # Auto-adjust column widths
     for col_idx, col_name in enumerate(column_order, start=1):
