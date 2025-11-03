@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-in-production-please-use-random-string'
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production-please-use-random-string')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
@@ -550,5 +550,7 @@ def process_file():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5001)
+    # For local development
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)
 
