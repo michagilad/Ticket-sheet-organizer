@@ -121,6 +121,13 @@ def extract_and_reorder_columns(rows):
         processed_row = {}
         for col in output_order:
             processed_row[col] = row.get(col, '')
+        
+        # If Associated Experience is empty, use Experience Name as fallback
+        if not processed_row.get('Associated Experience') or not str(processed_row['Associated Experience']).strip():
+            experience_name = row.get('Experience Name', '')
+            if experience_name:
+                processed_row['Associated Experience'] = experience_name
+        
         processed_rows.append(processed_row)
     
     # Sort by Associated Experience IDs (numerically) before grouping
