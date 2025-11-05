@@ -84,20 +84,22 @@ def extract_and_reorder_columns(rows):
         'Last Updated - Status',
         'Last Updated - Next step',
         'Last Updated - Invalid Ticket',
-        'Last Updated - Non Ticketed Issues'
+        'Last Updated - Non Ticketed Issues',
+        'Public Preview Link'  # This will be generated, not from input
     ]
     
     # Define the output order
     output_order = [
         'Associated Experience',
         'Backstage Experience page',
+        'Public Preview Link',
         'Associated Experience IDs',
         'Assignee',
         'Ticket name',
         'Ticket description',
+        'Ticket status',
         'Invalid ticket',
         'Ticket Category',
-        'Ticket status',
         'Sub Category',
         'Non-ticketed issues',
         'Additional Notes',
@@ -257,7 +259,7 @@ def create_xlsx(rows, column_order, output_path):
     groups = group_by_experience(rows)
     
     # Columns that should be merged for same experience
-    merge_columns = ['Associated Experience', 'Backstage Experience page', 'Associated Experience IDs', 'Assignee']
+    merge_columns = ['Associated Experience', 'Backstage Experience page', 'Public Preview Link', 'Associated Experience IDs', 'Assignee']
     merge_col_indices = [column_order.index(col) + 1 for col in merge_columns]
     
     # Write data rows
@@ -277,8 +279,16 @@ def create_xlsx(rows, column_order, output_path):
                 cell.alignment = Alignment(vertical='top', wrap_text=True)
                 cell.border = thin_border
                 
+                # Add formula for Public Preview Link column
+                if col_name == 'Public Preview Link':
+                    # Find the column letter for Associated Experience IDs
+                    exp_ids_col_idx = column_order.index('Associated Experience IDs') + 1
+                    exp_ids_col_letter = get_column_letter(exp_ids_col_idx)
+                    # Set formula: ="https://app.eko.com/public/experiences/" & D2
+                    cell.value = f'="https://app.eko.com/public/experiences/" & {exp_ids_col_letter}{current_row}'
+                
                 # Make URLs clickable (no font styling)
-                if col_name == 'Backstage Experience page' and value and (str(value).startswith('http://') or str(value).startswith('https://')):
+                elif col_name == 'Backstage Experience page' and value and (str(value).startswith('http://') or str(value).startswith('https://')):
                     cell.hyperlink = str(value)
                 
             current_row += 1
@@ -312,7 +322,7 @@ def create_xlsx(rows, column_order, output_path):
         # Set minimum and maximum widths
         if col_name in ['Ticket description', 'Ticket name']:
             ws.column_dimensions[col_letter].width = 40
-        elif col_name in ['Associated Experience', 'Backstage Experience page']:
+        elif col_name in ['Associated Experience', 'Backstage Experience page', 'Public Preview Link']:
             ws.column_dimensions[col_letter].width = 30
         elif col_name in ['Associated Experience IDs', 'Ticket ID']:
             ws.column_dimensions[col_letter].width = 20
