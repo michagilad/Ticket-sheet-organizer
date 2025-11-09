@@ -547,6 +547,7 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """Handle file upload and show assignee distribution page."""
+    app.logger.info('========== UPLOAD STARTED ==========')
     if 'file' not in request.files:
         flash('No file selected', 'error')
         return redirect(url_for('index'))
