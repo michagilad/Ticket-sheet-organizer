@@ -353,7 +353,7 @@ def create_xlsx(rows, column_order, output_path):
     
     dv_status = DataValidation(
         type="list",
-        formula1='"Todo,In Progress,Done,Resolved,Stuck"',
+        formula1='"Todo,In Progress,Done,Resolved,Stuck,Other ticket stuck"',
         allow_blank=True
     )
     dv_status.error = 'Please select a valid status from the dropdown'
