@@ -594,10 +594,14 @@ def upload_file():
         existing_assignments = get_existing_assignments_from_sheet()
         app.logger.info(f'Found {len(existing_assignments)} existing assignments in Google Sheets')
         
-        # Log first 5 for debugging
+        # Log first 10 for debugging
         if existing_assignments:
-            sample_ids = list(existing_assignments.keys())[:5]
+            sample_ids = list(existing_assignments.keys())[:10]
             app.logger.info(f'Sample Experience IDs from sheet: {sample_ids}')
+        
+        # Log first 10 from CSV for comparison
+        csv_exp_ids = [str(key[2]).strip() for key, _, _ in groups if key[2]][:10]
+        app.logger.info(f'Sample Experience IDs from CSV: {csv_exp_ids}')
         
         # Separate new vs returning experiences
         new_experiences = []
