@@ -560,6 +560,22 @@ def upload_file():
         return redirect(url_for('index'))
     
     try:
+        # Clean up any old session data first
+        old_uploaded_file = session.get('uploaded_filename')
+        if old_uploaded_file:
+            old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], old_uploaded_file)
+            if os.path.exists(old_file_path):
+                os.remove(old_file_path)
+        
+        old_returning_file = session.get('returning_exp_file')
+        if old_returning_file:
+            old_returning_path = os.path.join(app.config['UPLOAD_FOLDER'], old_returning_file)
+            if os.path.exists(old_returning_path):
+                os.remove(old_returning_path)
+        
+        # Clear old session
+        session.clear()
+        
         # Save uploaded file with timestamp to avoid conflicts
         timestamp = int(datetime.now().timestamp() * 1000)
         original_filename = secure_filename(file.filename)
