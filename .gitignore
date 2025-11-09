@@ -47,6 +47,9 @@ instance/
 .env
 .env.local
 
+# Google Service Account credentials
+*.json
+
 # Logs
 *.log
 

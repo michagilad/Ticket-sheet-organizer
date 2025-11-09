@@ -7,6 +7,7 @@ A Flask web app with a UI for uploading CSV files and downloading organized XLSX
 import os
 import tempfile
 from pathlib import Path
+from datetime import datetime
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, session, jsonify, after_this_request
 from werkzeug.utils import secure_filename
 import csv
@@ -15,6 +16,8 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+import gspread
+from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production-please-use-random-string')
@@ -43,6 +46,88 @@ ASSIGNEES = [
     'Vencel',
     'Áron'
 ]
+
+# Google Sheets Configuration
+GOOGLE_SHEETS_ENABLED = os.environ.get('GOOGLE_SHEETS_ENABLED', 'false').lower() == 'true'
+GOOGLE_SHEET_NAME = os.environ.get('GOOGLE_SHEET_NAME', 'Tickets with contact')
+
+
+def get_google_sheet_client():
+    """Initialize and return Google Sheets client."""
+    if not GOOGLE_SHEETS_ENABLED:
+        return None
+    
+    try:
+        # Load credentials from environment variable (JSON string)
+        creds_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
+        if not creds_json:
+            app.logger.warning('GOOGLE_SHEETS_CREDENTIALS not found')
+            return None
+        
+        # Parse JSON credentials
+        creds_dict = json.loads(creds_json)
+        
+        # Define scopes
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        
+        # Create credentials
+        credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        
+        # Create client
+        client = gspread.authorize(credentials)
+        return client
+    except Exception as e:
+        app.logger.error(f'Error initializing Google Sheets client: {e}')
+        return None
+
+
+def get_existing_assignments_from_sheet():
+    """
+    Read ALL tabs in Google Sheet and return dict of Experience ID → Assignee mappings.
+    Returns: dict {experience_id: {'assignee': str, 'experience_name': str, 'date_assigned': str}}
+    """
+    client = get_google_sheet_client()
+    if not client:
+        app.logger.info('Google Sheets not enabled, skipping history check')
+        return {}
+    
+    try:
+        # Open the spreadsheet
+        spreadsheet = client.open(GOOGLE_SHEET_NAME)
+        
+        assignments = {}
+        
+        # Read all worksheets/tabs
+        for worksheet in spreadsheet.worksheets():
+            try:
+                # Get all records (assumes first row is header)
+                records = worksheet.get_all_records()
+                
+                for record in records:
+                    # Use your column names
+                    exp_id = str(record.get('Associated Experience IDs', '')).strip()
+                    if exp_id and exp_id != '':
+                        # Only store if not already stored (first occurrence wins)
+                        if exp_id not in assignments:
+                            assignments[exp_id] = {
+                                'assignee': record.get('Assignee', ''),
+                                'experience_name': record.get('Associated Experience', ''),
+                                'date_assigned': record.get('Create date', ''),
+                                'tab': worksheet.title
+                            }
+            except Exception as e:
+                app.logger.warning(f'Error reading worksheet {worksheet.title}: {e}')
+                continue
+        
+        app.logger.info(f'Loaded {len(assignments)} existing assignments from Google Sheets')
+        return assignments
+        
+    except Exception as e:
+        app.logger.error(f'Error reading Google Sheet: {e}')
+        return {}
 
 
 def allowed_file(filename):
@@ -149,13 +234,14 @@ def extract_and_reorder_columns(rows):
     return processed_rows, output_order
 
 
-def assign_experiences_to_assignees(groups, assignee_distribution):
+def assign_experiences_to_assignees(groups, assignee_distribution, returning_exp_map=None):
     """
     Assign experiences to assignees based on the distribution settings.
     
     Args:
         groups: List of experience groups
         assignee_distribution: Dict with assignee names as keys and counts as values
+        returning_exp_map: Dict of returning experience IDs (to skip)
     
     Returns:
         List of groups with assignees assigned
@@ -171,14 +257,17 @@ def assign_experiences_to_assignees(groups, assignee_distribution):
     for name, count in active_assignees.items():
         assignee_pool.extend([name] * count)
     
-    # Assign to groups (only those with non-empty experience IDs)
+    # Assign to groups (only those with non-empty experience IDs and NOT already assigned)
     assignee_idx = 0
     for group_key, group_size, group_rows in groups:
         # Check if this group has a valid experience ID
         exp_id = group_key[2]  # Associated Experience IDs is the third element
         has_exp_id = exp_id and str(exp_id).strip()
         
-        if has_exp_id and assignee_pool:
+        # Skip if already assigned (returning experience)
+        is_already_assigned = returning_exp_map and str(exp_id).strip() in returning_exp_map
+        
+        if has_exp_id and assignee_pool and not is_already_assigned:
             # Assign the same assignee to all rows in this group
             assignee = assignee_pool[assignee_idx % len(assignee_pool)]
             for row in group_rows:
@@ -397,7 +486,7 @@ def create_xlsx(rows, column_order, output_path):
     return groups
 
 
-def process_csv_file(input_path, output_path, assignee_distribution=None):
+def process_csv_file(input_path, output_path, assignee_distribution=None, returning_experiences=None):
     """Process CSV file and create organized XLSX output."""
     # Read CSV
     rows = read_csv_robust(input_path)
@@ -408,9 +497,25 @@ def process_csv_file(input_path, output_path, assignee_distribution=None):
     # Group experiences
     groups = group_by_experience(processed_rows)
     
-    # Assign experiences to assignees if distribution is provided
+    # Create a dict of returning experience IDs to assignees for quick lookup
+    returning_exp_map = {}
+    if returning_experiences:
+        for exp in returning_experiences:
+            returning_exp_map[exp['experience_id']] = exp['assignee']
+    
+    # Auto-assign returning experiences first
+    if returning_exp_map:
+        for key, ticketnum, group_rows in groups:
+            exp_id = str(key[2]).strip() if key[2] else ''
+            if exp_id in returning_exp_map:
+                # This is a returning experience - auto-assign
+                assignee = returning_exp_map[exp_id]
+                for row in group_rows:
+                    row['Assignee'] = assignee
+    
+    # Assign NEW experiences to assignees if distribution is provided
     if assignee_distribution:
-        groups = assign_experiences_to_assignees(groups, assignee_distribution)
+        groups = assign_experiences_to_assignees(groups, assignee_distribution, returning_exp_map)
     
     # Create XLSX (we need to flatten groups back to rows for create_xlsx)
     all_rows = []
@@ -455,8 +560,10 @@ def upload_file():
         return redirect(url_for('index'))
     
     try:
-        # Save uploaded file
-        filename = secure_filename(file.filename)
+        # Save uploaded file with timestamp to avoid conflicts
+        timestamp = int(datetime.now().timestamp() * 1000)
+        original_filename = secure_filename(file.filename)
+        filename = f"{timestamp}_{original_filename}"
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(input_path)
         
@@ -465,13 +572,37 @@ def upload_file():
         processed_rows, _ = extract_and_reorder_columns(rows)
         groups = group_by_experience(processed_rows)
         
-        # Count experiences with valid IDs
-        valid_experiences = sum(1 for key, _, _ in groups 
-                               if key[2] and str(key[2]).strip())
+        # Get existing assignments from Google Sheets
+        existing_assignments = get_existing_assignments_from_sheet()
         
-        # Store filename in session
+        # Separate new vs returning experiences
+        new_experiences = []
+        returning_experiences = []
+        
+        for key, _, _ in groups:
+            exp_id = str(key[2]).strip() if key[2] else ''
+            if exp_id and exp_id in existing_assignments:
+                # This is a returning experience
+                returning_experiences.append({
+                    'experience_id': exp_id,
+                    'experience_name': key[1],
+                    'assignee': existing_assignments[exp_id]['assignee'],
+                    'date_assigned': existing_assignments[exp_id].get('date_assigned', 'Unknown'),
+                    'previous_tab': existing_assignments[exp_id].get('tab', 'Unknown')
+                })
+            elif exp_id:
+                # This is a new experience
+                new_experiences.append(exp_id)
+        
+        # Store in session
         session['uploaded_filename'] = filename
-        session['total_experiences'] = valid_experiences
+        session['original_filename'] = original_filename
+        session['total_experiences'] = len(groups)
+        session['new_experiences'] = len(new_experiences)
+        session['returning_experiences'] = returning_experiences
+        
+        # Log the results
+        app.logger.info(f"Upload complete: {len(new_experiences)} new, {len(returning_experiences)} returning")
         
         # Redirect to assignee distribution page
         return redirect(url_for('assignee_distribution'))
@@ -490,9 +621,14 @@ def assignee_distribution():
         flash('No file uploaded', 'error')
         return redirect(url_for('index'))
     
+    returning_experiences = session.get('returning_experiences', [])
+    new_experiences = session.get('new_experiences', session.get('total_experiences', 0))
+    
     return render_template('assignee_distribution.html', 
                           assignees=ASSIGNEES,
-                          total_experiences=session.get('total_experiences', 0))
+                          total_experiences=session.get('total_experiences', 0),
+                          new_experiences=new_experiences,
+                          returning_experiences=returning_experiences)
 
 
 @app.route('/process', methods=['POST'])
@@ -525,13 +661,17 @@ def process_file():
                 assignee_distribution[assignee] = count
         
         # Create output filename
-        output_filename = Path(filename).stem + '_organized.xlsx'
+        original_filename = session.get('original_filename', filename)
+        output_filename = Path(original_filename).stem + '_organized.xlsx'
         output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
         
         app.logger.info(f'Output path: {output_path}')
         
-        # Process the file with assignee distribution
-        stats = process_csv_file(input_path, output_path, assignee_distribution)
+        # Get returning experiences from session
+        returning_experiences = session.get('returning_experiences', [])
+        
+        # Process the file with assignee distribution and returning experiences
+        stats = process_csv_file(input_path, output_path, assignee_distribution, returning_experiences)
         
         app.logger.info(f'File processed successfully. Stats: {stats}')
         
@@ -547,7 +687,10 @@ def process_file():
         
         # Clear session
         session.pop('uploaded_filename', None)
+        session.pop('original_filename', None)
         session.pop('total_experiences', None)
+        session.pop('new_experiences', None)
+        session.pop('returning_experiences', None)
         
         # Set up cleanup after file is sent
         @after_this_request

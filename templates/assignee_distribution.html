@@ -259,9 +259,26 @@
         <h1>👥 Assign Experiences</h1>
         <p class="subtitle">Distribute {{ total_experiences }} experiences among team members</p>
 
+        {% if returning_experiences %}
+        <div class="info-box" style="background: #e8f5e9; margin-bottom: 15px;">
+            <strong style="color: #4caf50;">{{ returning_experiences|length }}</strong>
+            <span style="color: #2e7d32;">Returning Experiences (Auto-Assigned)</span>
+            <div style="margin-top: 15px; text-align: left; max-height: 200px; overflow-y: auto;">
+                {% for exp in returning_experiences %}
+                <div style="padding: 8px; background: white; border-radius: 5px; margin-bottom: 5px; font-size: 0.9em;">
+                    <strong>{{ exp.experience_name or exp.experience_id }}</strong>
+                    <span style="color: #666;"> → </span>
+                    <span style="color: #4caf50; font-weight: 600;">{{ exp.assignee }}</span>
+                    <span style="color: #999; font-size: 0.85em;"> (from {{ exp.previous_tab }})</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <div class="info-box">
-            <strong>{{ total_experiences }}</strong>
-            <span>Total Experiences to Assign</span>
+            <strong>{{ new_experiences }}</strong>
+            <span>New Experiences to Assign</span>
         </div>
 
         <div class="distribution-mode">
@@ -328,6 +345,7 @@
 
     <script>
         const totalExperiences = {{ total_experiences }};
+        const newExperiences = {{ new_experiences }};
         const assignees = {{ assignees|tojson }};
         let mode = 'manual';
         let assigneeCounts = {};
@@ -374,7 +392,7 @@
         function changeCount(assignee, delta) {
             const input = document.getElementById(`assignee_${assignee}`);
             let newValue = parseInt(input.value) + delta;
-            newValue = Math.max(0, Math.min(totalExperiences * 2, newValue)); // Allow some flexibility
+            newValue = Math.max(0, Math.min(newExperiences * 2, newValue)); // Allow some flexibility
             input.value = newValue;
             assigneeCounts[assignee] = newValue;
             updateSummary();
@@ -397,8 +415,8 @@
                 return;
             }
 
-            const baseCount = Math.floor(totalExperiences / selectedAssignees.length);
-            const remainder = totalExperiences % selectedAssignees.length;
+            const baseCount = Math.floor(newExperiences / selectedAssignees.length);
+            const remainder = newExperiences % selectedAssignees.length;
 
             selectedAssignees.forEach((assignee, index) => {
                 const count = baseCount + (index < remainder ? 1 : 0);
@@ -423,7 +441,7 @@
                 summary.classList.add('hidden');
             }
 
-            if (total > totalExperiences) {
+            if (total > newExperiences) {
                 warning.classList.remove('hidden');
             } else {
                 warning.classList.add('hidden');
