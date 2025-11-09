@@ -263,15 +263,23 @@
         <div class="info-box" style="background: #e8f5e9; margin-bottom: 15px;">
             <strong style="color: #4caf50;">{{ returning_experiences|length }}</strong>
             <span style="color: #2e7d32;">Returning Experiences (Auto-Assigned)</span>
-            <div style="margin-top: 15px; text-align: left; max-height: 200px; overflow-y: auto;">
-                {% for exp in returning_experiences %}
-                <div style="padding: 8px; background: white; border-radius: 5px; margin-bottom: 5px; font-size: 0.9em;">
-                    <strong>{{ exp.experience_name or exp.experience_id }}</strong>
-                    <span style="color: #666;"> → </span>
-                    <span style="color: #4caf50; font-weight: 600;">{{ exp.assignee }}</span>
-                    <span style="color: #999; font-size: 0.85em;"> (from {{ exp.previous_tab }})</span>
-                </div>
-                {% endfor %}
+            <div style="margin-top: 15px; max-height: 200px; overflow-y: auto; background: white; border-radius: 8px; padding: 10px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #e0e0e0;">
+                            <th style="text-align: left; padding: 8px; color: #666; font-weight: 600;">Experience ID</th>
+                            <th style="text-align: left; padding: 8px; color: #666; font-weight: 600;">Assignee</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exp in returning_experiences %}
+                        <tr style="border-bottom: 1px solid #f0f0f0;">
+                            <td style="padding: 8px; color: #333;">{{ exp.experience_id }}</td>
+                            <td style="padding: 8px; color: #4caf50; font-weight: 600;">{{ exp.assignee }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
         {% endif %}
