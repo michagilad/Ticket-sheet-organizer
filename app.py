@@ -80,7 +80,7 @@ def get_google_sheet_client():
         client = gspread.authorize(credentials)
         return client
     except Exception as e:
-        app.logger.error(f'Error initializing Google Sheets client: {e}')
+        app.logger.error(f'Error initializing Google Sheets client: {e}', exc_info=True)
         return None
 
 
@@ -128,7 +128,7 @@ def get_existing_assignments_from_sheet():
         return assignments
         
     except Exception as e:
-        app.logger.error(f'Error reading Google Sheet: {e}')
+        app.logger.error(f'Error reading Google Sheet: {e}', exc_info=True)
         return {}
 
 
@@ -591,6 +591,8 @@ def upload_file():
         groups = group_by_experience(processed_rows)
         
         # Get existing assignments from Google Sheets
+        app.logger.info('Starting Google Sheets check...')
+        app.logger.info(f'GOOGLE_SHEETS_ENABLED: {GOOGLE_SHEETS_ENABLED}')
         existing_assignments = get_existing_assignments_from_sheet()
         app.logger.info(f'Found {len(existing_assignments)} existing assignments in Google Sheets')
         
