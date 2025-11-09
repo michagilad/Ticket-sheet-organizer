@@ -574,6 +574,12 @@ def upload_file():
         
         # Get existing assignments from Google Sheets
         existing_assignments = get_existing_assignments_from_sheet()
+        app.logger.info(f'Found {len(existing_assignments)} existing assignments in Google Sheets')
+        
+        # Log first 5 for debugging
+        if existing_assignments:
+            sample_ids = list(existing_assignments.keys())[:5]
+            app.logger.info(f'Sample Experience IDs from sheet: {sample_ids}')
         
         # Separate new vs returning experiences
         new_experiences = []
@@ -583,6 +589,7 @@ def upload_file():
             exp_id = str(key[2]).strip() if key[2] else ''
             if exp_id and exp_id in existing_assignments:
                 # This is a returning experience
+                app.logger.info(f'Returning experience found: {exp_id} -> {existing_assignments[exp_id]["assignee"]}')
                 returning_experiences.append({
                     'experience_id': exp_id,
                     'experience_name': key[1],
