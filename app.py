@@ -594,12 +594,18 @@ def upload_file():
                 # This is a new experience
                 new_experiences.append(exp_id)
         
+        # Store returning experiences in a temp file (session cookie too small for large data)
+        returning_exp_filename = f"{timestamp}_returning.json"
+        returning_exp_path = os.path.join(app.config['UPLOAD_FOLDER'], returning_exp_filename)
+        with open(returning_exp_path, 'w') as f:
+            json.dump(returning_experiences, f)
+        
         # Store in session
         session['uploaded_filename'] = filename
         session['original_filename'] = original_filename
         session['total_experiences'] = len(groups)
         session['new_experiences'] = len(new_experiences)
-        session['returning_experiences'] = returning_experiences
+        session['returning_exp_file'] = returning_exp_filename
         
         # Log the results
         app.logger.info(f"Upload complete: {len(new_experiences)} new, {len(returning_experiences)} returning")
@@ -621,7 +627,15 @@ def assignee_distribution():
         flash('No file uploaded', 'error')
         return redirect(url_for('index'))
     
-    returning_experiences = session.get('returning_experiences', [])
+    # Load returning experiences from temp file
+    returning_experiences = []
+    returning_exp_file = session.get('returning_exp_file')
+    if returning_exp_file:
+        returning_exp_path = os.path.join(app.config['UPLOAD_FOLDER'], returning_exp_file)
+        if os.path.exists(returning_exp_path):
+            with open(returning_exp_path, 'r') as f:
+                returning_experiences = json.load(f)
+    
     new_experiences = session.get('new_experiences', session.get('total_experiences', 0))
     
     return render_template('assignee_distribution.html', 
@@ -667,8 +681,14 @@ def process_file():
         
         app.logger.info(f'Output path: {output_path}')
         
-        # Get returning experiences from session
-        returning_experiences = session.get('returning_experiences', [])
+        # Load returning experiences from temp file
+        returning_experiences = []
+        returning_exp_file = session.get('returning_exp_file')
+        if returning_exp_file:
+            returning_exp_path = os.path.join(app.config['UPLOAD_FOLDER'], returning_exp_file)
+            if os.path.exists(returning_exp_path):
+                with open(returning_exp_path, 'r') as f:
+                    returning_experiences = json.load(f)
         
         # Process the file with assignee distribution and returning experiences
         stats = process_csv_file(input_path, output_path, assignee_distribution, returning_experiences)
@@ -682,15 +702,17 @@ def process_file():
         
         app.logger.info(f'Output file size: {os.path.getsize(output_path)} bytes')
         
-        # Clean up input file
+        # Clean up input file and returning experiences temp file
         os.remove(input_path)
+        if returning_exp_file and os.path.exists(returning_exp_path):
+            os.remove(returning_exp_path)
         
         # Clear session
         session.pop('uploaded_filename', None)
         session.pop('original_filename', None)
         session.pop('total_experiences', None)
         session.pop('new_experiences', None)
-        session.pop('returning_experiences', None)
+        session.pop('returning_exp_file', None)
         
         # Set up cleanup after file is sent
         @after_this_request
