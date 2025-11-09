@@ -103,8 +103,10 @@ def get_existing_assignments_from_sheet():
         # Read all worksheets/tabs
         for worksheet in spreadsheet.worksheets():
             try:
+                app.logger.info(f'Reading worksheet: {worksheet.title}')
                 # Get all records (assumes first row is header)
                 records = worksheet.get_all_records()
+                app.logger.info(f'  Found {len(records)} rows in {worksheet.title}')
                 
                 for record in records:
                     # Use your column names
