@@ -42,6 +42,7 @@ ASSIGNEES = [
     'Marci',
     'Gábor',
     'Bálint',
+    'Vivien',
     'B.Zsófi',
     'Muki',
     'Péter',
