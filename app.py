@@ -323,6 +323,7 @@ def group_by_experience(rows):
 
 def create_xlsx(rows, column_order, output_path):
     """Create XLSX file with proper formatting, merging cells for identical experiences."""
+    app.logger.info('  Creating workbook...')
     wb = Workbook()
     ws = wb.active
     ws.title = "Organized Tickets"
@@ -352,6 +353,7 @@ def create_xlsx(rows, column_order, output_path):
     )
     
     # Write header row
+    app.logger.info('  Writing header row...')
     for col_idx, col_name in enumerate(column_order, start=1):
         cell = ws.cell(row=1, column=col_idx, value=col_name)
         cell.fill = header_fill
@@ -359,15 +361,22 @@ def create_xlsx(rows, column_order, output_path):
         cell.border = thick_border
     
     # Group rows by experience
+    app.logger.info('  Grouping rows by experience...')
     groups = group_by_experience(rows)
+    app.logger.info(f'  Found {len(groups)} groups')
     
     # Columns that should be merged for same experience
     merge_columns = ['Associated Experience', 'Backstage Experience page', 'Public Preview Link', 'Associated Experience IDs', 'Assignee']
     merge_col_indices = [column_order.index(col) + 1 for col in merge_columns]
     
     # Write data rows
+    app.logger.info(f'  Writing {len(groups)} groups to XLSX...')
     current_row = 2
     for group_idx, (experience_key, group_size, group_rows) in enumerate(groups):
+        # Log progress every 100 groups
+        if group_idx % 100 == 0:
+            app.logger.info(f'    Processing group {group_idx}/{len(groups)}...')
+        
         # Choose color for this experience group
         group_fill = colors[group_idx % len(colors)]
         
@@ -488,7 +497,9 @@ def create_xlsx(rows, column_order, output_path):
     ws.add_data_validation(dv_assignee)
     
     # Save workbook
+    app.logger.info(f'  Saving workbook to {output_path}...')
     wb.save(output_path)
+    app.logger.info('  Workbook saved successfully')
     
     return groups
 
@@ -496,13 +507,18 @@ def create_xlsx(rows, column_order, output_path):
 def process_csv_file(input_path, output_path, assignee_distribution=None, returning_experiences=None):
     """Process CSV file and create organized XLSX output."""
     # Read CSV
+    app.logger.info('Reading CSV...')
     rows = read_csv_robust(input_path)
+    app.logger.info(f'Read {len(rows)} rows')
     
     # Process and reorder columns
+    app.logger.info('Processing columns...')
     processed_rows, column_order = extract_and_reorder_columns(rows)
     
     # Group experiences
+    app.logger.info('Grouping experiences...')
     groups = group_by_experience(processed_rows)
+    app.logger.info(f'Found {len(groups)} unique experiences')
     
     # Create a dict of returning experience IDs to assignees for quick lookup
     returning_exp_map = {}
@@ -522,15 +538,20 @@ def process_csv_file(input_path, output_path, assignee_distribution=None, return
     
     # Assign NEW experiences to assignees if distribution is provided
     if assignee_distribution:
+        app.logger.info('Assigning experiences to assignees...')
         groups = assign_experiences_to_assignees(groups, assignee_distribution, returning_exp_map)
     
     # Create XLSX (we need to flatten groups back to rows for create_xlsx)
+    app.logger.info('Flattening groups...')
     all_rows = []
     for _, _, group_rows in groups:
         all_rows.extend(group_rows)
+    app.logger.info(f'Total rows for XLSX: {len(all_rows)}')
     
     # Create XLSX
+    app.logger.info('Creating XLSX file (this may take a while for large files)...')
     groups = create_xlsx(all_rows, column_order, output_path)
+    app.logger.info('XLSX file created successfully')
     
     # Return statistics
     multi_ticket_experiences = [g for g in groups if g[1] > 1]
@@ -619,7 +640,7 @@ def upload_file():
             exp_id = str(key[2]).strip() if key[2] else ''
             if exp_id and exp_id in existing_assignments:
                 # This is a returning experience
-                app.logger.info(f'Returning experience found: {exp_id} -> {existing_assignments[exp_id]["assignee"]}')
+                app.logger.info(f'✓ MATCH FOUND: {exp_id} -> {existing_assignments[exp_id]["assignee"]}')
                 returning_experiences.append({
                     'experience_id': exp_id,
                     'experience_name': key[1],
@@ -728,6 +749,7 @@ def process_file():
                     returning_experiences = json.load(f)
         
         # Process the file with assignee distribution and returning experiences
+        app.logger.info('Starting process_csv_file...')
         stats = process_csv_file(input_path, output_path, assignee_distribution, returning_experiences)
         
         app.logger.info(f'File processed successfully. Stats: {stats}')
