@@ -774,28 +774,32 @@ def process_file():
         
         app.logger.info(f'Output file size: {os.path.getsize(output_path)} bytes')
         
-        # Clean up input file and returning experiences temp file
-        os.remove(input_path)
-        if returning_exp_file and os.path.exists(returning_exp_path):
-            os.remove(returning_exp_path)
+        # Set up cleanup after file is sent
+        @after_this_request
+        def cleanup(response):
+            try:
+                # Clean up ALL temp files after response is sent
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                    app.logger.info(f'Cleaned up output file: {output_path}')
+                if os.path.exists(input_path):
+                    os.remove(input_path)
+                    app.logger.info(f'Cleaned up input file: {input_path}')
+                if returning_exp_file:
+                    returning_exp_path_cleanup = os.path.join(app.config['UPLOAD_FOLDER'], returning_exp_file)
+                    if os.path.exists(returning_exp_path_cleanup):
+                        os.remove(returning_exp_path_cleanup)
+                        app.logger.info(f'Cleaned up returning exp file: {returning_exp_path_cleanup}')
+            except Exception as e:
+                app.logger.error(f'Error during cleanup: {e}')
+            return response
         
-        # Clear session
+        # Clear session before sending (so user can immediately upload a new file)
         session.pop('uploaded_filename', None)
         session.pop('original_filename', None)
         session.pop('total_experiences', None)
         session.pop('new_experiences', None)
         session.pop('returning_exp_file', None)
-        
-        # Set up cleanup after file is sent
-        @after_this_request
-        def cleanup(response):
-            try:
-                if os.path.exists(output_path):
-                    os.remove(output_path)
-                    app.logger.info(f'Cleaned up output file: {output_path}')
-            except Exception as e:
-                app.logger.error(f'Error removing file: {e}')
-            return response
         
         # Send the file for download
         app.logger.info(f'Sending file for download: {output_filename}')
