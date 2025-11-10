@@ -666,6 +666,7 @@ def upload_file():
         session['returning_exp_file'] = returning_exp_filename
         
         # Log the results
+        app.logger.info(f'Session after upload: {dict(session)}')
         app.logger.info(f"Upload complete: {len(new_experiences)} new, {len(returning_experiences)} returning")
         
         # Redirect to assignee distribution page
@@ -706,7 +707,11 @@ def assignee_distribution():
 @app.route('/process', methods=['POST'])
 def process_file():
     """Process the file with assignee distribution."""
+    app.logger.info(f'Session keys: {list(session.keys())}')
+    app.logger.info(f'Session data: {dict(session)}')
+    
     if 'uploaded_filename' not in session:
+        app.logger.error('No uploaded_filename in session!')
         flash('No file uploaded', 'error')
         return redirect(url_for('index'))
     
@@ -717,6 +722,14 @@ def process_file():
         app.logger.info(f'Processing file: {filename}')
         app.logger.info(f'Input path: {input_path}')
         app.logger.info(f'Temp dir: {app.config["UPLOAD_FOLDER"]}')
+        
+        # List all files in temp dir
+        try:
+            temp_files = os.listdir(app.config['UPLOAD_FOLDER'])
+            csv_files = [f for f in temp_files if f.endswith('.csv')]
+            app.logger.info(f'CSV files in temp dir: {csv_files[:10]}')  # First 10
+        except Exception as e:
+            app.logger.error(f'Error listing temp dir: {e}')
         
         if not os.path.exists(input_path):
             app.logger.error(f'Input file not found at: {input_path}')
