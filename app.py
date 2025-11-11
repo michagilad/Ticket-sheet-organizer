@@ -148,6 +148,9 @@ def read_csv_robust(file_path):
     with open(file_path, 'r', encoding='utf-8-sig', newline='') as f:
         reader = csv.DictReader(f)
         rows = list(reader)
+        # Log available columns for debugging
+        if rows:
+            app.logger.info(f'CSV columns found: {list(rows[0].keys())}')
     return rows
 
 
@@ -211,16 +214,23 @@ def extract_and_reorder_columns(rows):
     ]
     
     processed_rows = []
-    for row in rows:
+    for idx, row in enumerate(rows):
         processed_row = {}
         for col in output_order:
             processed_row[col] = row.get(col, '')
         
         # If Associated Experience is empty, use Experience Name as fallback
+        # Try multiple possible column names
         if not processed_row.get('Associated Experience') or not str(processed_row['Associated Experience']).strip():
-            experience_name = row.get('Experience Name', '')
-            if experience_name:
-                processed_row['Associated Experience'] = experience_name
+            # Try different possible column names from CSV
+            experience_name = (row.get('Experience Name', '') or 
+                             row.get('Experience name', '') or 
+                             row.get('experience name', '') or
+                             row.get('ExperienceName', ''))
+            if experience_name and str(experience_name).strip():
+                processed_row['Associated Experience'] = str(experience_name).strip()
+                if idx < 3:  # Log first few for debugging
+                    app.logger.info(f'Row {idx}: Populated Associated Experience with: {experience_name}')
         
         processed_rows.append(processed_row)
     
@@ -332,6 +342,7 @@ def create_xlsx(rows, column_order, output_path):
     
     # Define styles
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
     
     # Alternating colors for experience groups
     colors = [
@@ -359,6 +370,7 @@ def create_xlsx(rows, column_order, output_path):
     for col_idx, col_name in enumerate(column_order, start=1):
         cell = ws.cell(row=1, column=col_idx, value=col_name)
         cell.fill = header_fill
+        cell.font = header_font
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border = thick_border
     
@@ -404,6 +416,10 @@ def create_xlsx(rows, column_order, output_path):
                 # Make URLs clickable (no font styling)
                 elif col_name == 'Backstage Experience page' and value and (str(value).startswith('http://') or str(value).startswith('https://')):
                     cell.hyperlink = str(value)
+                
+                # Bold Ticket name column
+                if col_name == 'Ticket name':
+                    cell.font = Font(bold=True)
                 
             current_row += 1
         
