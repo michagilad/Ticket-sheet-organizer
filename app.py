@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 import csv
 import json
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment, Border, Side
+from openpyxl.styles import PatternFill, Alignment, Border, Side, Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 import gspread
