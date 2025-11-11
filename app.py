@@ -166,6 +166,7 @@ def extract_and_reorder_columns(rows):
         'Ticket status',
         'Associated Experience IDs',
         'Associated Experience',
+        'Experience Name',  # Used as fallback for Associated Experience
         'Assignee',
         'Invalid ticket',
         'Ticket Category',
